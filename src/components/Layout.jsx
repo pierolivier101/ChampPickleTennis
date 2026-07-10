@@ -1,10 +1,13 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Home, Trophy, CalendarDays, Settings, LogOut, MessageSquare } from 'lucide-react';
+import { Home, Trophy, CalendarDays, Settings, LogOut, MessageSquare, HelpCircle } from 'lucide-react';
+import { useState } from 'react';
 import { useStore } from '../context/StoreContext';
+import GuideModal from './GuideModal';
 
 const Layout = () => {
   const { currentUser, logout } = useStore();
   const navigate = useNavigate();
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -18,16 +21,34 @@ const Layout = () => {
           <h1 style={{ fontSize: '1.5rem', marginBottom: 0 }}>
             <span className="text-primary">Champion</span> & Ace
           </h1>
-          {currentUser && (
-            <button onClick={handleLogout} className="btn btn-secondary" style={{ minHeight: '36px', padding: '0 0.5rem' }}>
-              <LogOut size={18} />
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setIsGuideOpen(true)} 
+              className="btn btn-secondary" 
+              style={{ minHeight: '36px', padding: '0 0.5rem' }}
+              title="How to Play"
+            >
+              <HelpCircle size={18} />
             </button>
-          )}
+            {currentUser && (
+              <button 
+                onClick={handleLogout} 
+                className="btn btn-secondary" 
+                style={{ minHeight: '36px', padding: '0 0.5rem' }}
+                title="Logout"
+              >
+                <LogOut size={18} />
+              </button>
+            )}
+          </div>
         </header>
         <main>
           <Outlet />
         </main>
       </div>
+
+      <GuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
+
 
       <nav className="bottom-nav">
         {currentUser?.role === 'player' && (

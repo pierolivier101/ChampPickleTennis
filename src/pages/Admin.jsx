@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
+import { Clipboard, Check, RefreshCw, XCircle, Trash2 } from 'lucide-react';
 
 const Admin = () => {
-  const { players, addPlayer, matches, addMatch, simulateTournament } = useStore();
-  const [activeTab, setActiveTab] = useState('players'); // 'players' | 'matches' | 'reports'
+  const { players, addPlayer, matches, addMatch, simulateTournament, deletePlayer, updateAdminPin, resetTournament } = useStore();
+  const [activeTab, setActiveTab] = useState('players'); // 'players' | 'matches' | 'reports' | 'settings'
 
   const handleExportPlayers = () => {
     const headers = ['ID', 'Name', 'Sport', 'Skill Level', 'Contact', 'Availability'];
@@ -61,6 +62,8 @@ const Admin = () => {
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerPin, setNewPlayerPin] = useState('');
   const [newPlayerSport, setNewPlayerSport] = useState('tennis');
+  const [recentRegistration, setRecentRegistration] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   // New Match State
   const [player1Id, setPlayer1Id] = useState('');
@@ -71,17 +74,55 @@ const Admin = () => {
   const [matchCourt, setMatchCourt] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Generate 4-digit PIN
+  const generateRandomPin = () => {
+    const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
+    setNewPlayerPin(randomPin);
+  };
+
+  // Generate initial PIN on mount
+  useEffect(() => {
+    generateRandomPin();
+  }, []);
+
   const handleAddPlayer = (e) => {
     e.preventDefault();
     if (!newPlayerName || !newPlayerPin) return;
+    
     addPlayer({
-      name: newPlayerName,
+      name: newPlayerName.trim(),
       pin: newPlayerPin,
       sport: newPlayerSport,
-      avatar_initials: newPlayerName.substring(0, 2).toUpperCase()
+      avatar_initials: newPlayerName.trim().substring(0, 2).toUpperCase()
     });
+
+    // Save for invitation copying
+    setRecentRegistration({
+      name: newPlayerName.trim(),
+      pin: newPlayerPin,
+      sport: newPlayerSport
+    });
+
     setNewPlayerName('');
-    setNewPlayerPin('');
+    // Automatically generate PIN for next registration
+    generateRandomPin();
+  };
+
+  const invitationText = recentRegistration ? `🎾 Welcome to Champion & Ace! 🏆
+
+Hi ${recentRegistration.name}! You've been registered for our tournament league.
+
+Access the app here: ${window.location.origin}/login
+Select/Type your Name: ${recentRegistration.name}
+Your Access PIN: ${recentRegistration.pin}
+
+Log in to customize your profile, specify your availability, chat with players, and schedule matches! Let's play!` : '';
+
+  const handleCopyInvitation = () => {
+    if (!invitationText) return;
+    navigator.clipboard.writeText(invitationText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleAddMatch = (e) => {
@@ -165,10 +206,60 @@ const Admin = () => {
         >
           Reports
         </button>
+        <button 
+          className={`btn ${activeTab === 'settings' ? 'btn-primary' : 'btn-secondary'}`} 
+          style={{ flex: 1 }}
+          onClick={() => setActiveTab('settings')}
+        >
+          Settings
+        </button>
       </div>
 
       {activeTab === 'players' && (
         <>
+          {recentRegistration && (
+            <div className="card animate-fade-in" style={{ border: '1px solid var(--success-color)', background: 'rgba(0, 230, 118, 0.05)', position: 'relative' }}>
+              <button 
+                onClick={() => setRecentRegistration(null)} 
+                style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                title="Close"
+              >
+                <XCircle size={18} />
+              </button>
+              <h4 className="text-primary flex items-center gap-2" style={{ color: 'var(--success-color)', marginBottom: '0.5rem', fontSize: '1rem' }}>
+                <Check size={18} /> Player Registered!
+              </h4>
+              <p className="text-secondary mb-2" style={{ fontSize: '0.85rem' }}>Send these login credentials to the player:</p>
+              <div 
+                style={{ 
+                  background: 'rgba(0,0,0,0.3)', 
+                  padding: '0.75rem', 
+                  borderRadius: '8px', 
+                  fontSize: '0.8rem', 
+                  fontFamily: 'monospace', 
+                  whiteSpace: 'pre-wrap',
+                  textAlign: 'left',
+                  maxHeight: '150px',
+                  overflowY: 'auto',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                  marginBottom: '0.75rem',
+                  color: '#e0e0e0'
+                }}
+              >
+                {invitationText}
+              </div>
+              <button 
+                type="button" 
+                onClick={handleCopyInvitation} 
+                className="btn btn-primary flex items-center gap-2" 
+                style={{ width: '100%', minHeight: '36px', fontSize: '0.85rem' }}
+              >
+                {copied ? <Check size={16} /> : <Clipboard size={16} />}
+                <span>{copied ? 'Copied to Clipboard!' : 'Copy Invitation Message'}</span>
+              </button>
+            </div>
+          )}
+
           <div className="card">
             <h3>Add New Player</h3>
             <form onSubmit={handleAddPlayer} className="flex flex-col gap-2 mt-2">
@@ -178,15 +269,30 @@ const Admin = () => {
                 placeholder="Player Name" 
                 value={newPlayerName} 
                 onChange={e => setNewPlayerName(e.target.value)} 
+                required
               />
-              <input 
-                type="text" 
-                className="input-field" 
-                placeholder="4-Digit PIN" 
-                maxLength={4}
-                value={newPlayerPin} 
-                onChange={e => setNewPlayerPin(e.target.value)} 
-              />
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="4-Digit PIN" 
+                  maxLength={4}
+                  value={newPlayerPin} 
+                  onChange={e => setNewPlayerPin(e.target.value)} 
+                  style={{ flex: 1 }}
+                  required
+                />
+                <button 
+                  type="button"
+                  onClick={generateRandomPin}
+                  className="btn btn-secondary flex items-center gap-1"
+                  style={{ minHeight: '44px', padding: '0 0.75rem', fontSize: '0.85rem' }}
+                  title="Generate Random PIN"
+                >
+                  <RefreshCw size={14} />
+                  <span>Generate</span>
+                </button>
+              </div>
               <select className="input-field" value={newPlayerSport} onChange={e => setNewPlayerSport(e.target.value)}>
                 <option value="tennis">Tennis</option>
                 <option value="pickleball">Pickleball</option>
@@ -223,9 +329,31 @@ const Admin = () => {
                   <div>
                     <strong>{p.name}</strong> <span className="text-secondary">(PIN: {p.pin})</span>
                   </div>
-                  <span className={`badge ${p.sport === 'tennis' ? 'badge-tennis' : 'badge-pickleball'}`}>
-                    {p.sport}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`badge ${p.sport === 'tennis' ? 'badge-tennis' : 'badge-pickleball'}`}>
+                      {p.sport}
+                    </span>
+                    <button 
+                      onClick={() => {
+                        if (confirm(`Are you sure you want to delete player ${p.name}?`)) {
+                          deletePlayer(p.id);
+                        }
+                      }}
+                      className="btn flex items-center justify-center"
+                      style={{ 
+                        minHeight: '30px', 
+                        width: '30px', 
+                        padding: 0, 
+                        backgroundColor: 'transparent',
+                        border: '1px solid var(--danger-color)',
+                        color: 'var(--danger-color)',
+                        cursor: 'pointer'
+                      }}
+                      title="Delete Player"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -301,6 +429,55 @@ const Admin = () => {
             </button>
             <button onClick={handleExportMatches} className="btn btn-primary" style={{ width: '100%' }}>
               📥 Export Match Logs (CSV)
+            </button>
+          </div>
+        </div>
+      )}
+      {activeTab === 'settings' && (
+        <div className="card flex flex-col gap-4">
+          <div>
+            <h3>Change Admin PIN</h3>
+            <p className="text-secondary mb-2" style={{ fontSize: '0.85rem' }}>Update the 4-digit password required to access this Admin dashboard.</p>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const fd = new FormData(e.target);
+              const newPin = fd.get('newPin');
+              if (!newPin || newPin.length !== 4 || isNaN(newPin)) {
+                alert('PIN must be exactly 4 digits.');
+                return;
+              }
+              updateAdminPin(newPin);
+              alert('Admin PIN updated successfully!');
+              e.target.reset();
+            }} className="flex gap-2">
+              <input 
+                name="newPin"
+                type="password" 
+                className="input-field" 
+                placeholder="New 4-Digit PIN" 
+                maxLength={4}
+                required
+              />
+              <button type="submit" className="btn btn-primary">Update PIN</button>
+            </form>
+          </div>
+          
+          <hr style={{ border: '0.5px solid rgba(255,255,255,0.1)', margin: '1rem 0' }} />
+          
+          <div>
+            <h3 style={{ color: 'var(--danger-color)' }}>Reset Tournament</h3>
+            <p className="text-secondary mb-2" style={{ fontSize: '0.85rem' }}>Wipe all players, match schedules, scores, and chat messages. This cannot be undone.</p>
+            <button 
+              onClick={() => {
+                if (confirm("🚨 WARNING: This will permanently delete ALL players, matches, and chat board messages. Are you sure you want to completely reset the tournament?")) {
+                  resetTournament();
+                  alert("Tournament has been completely reset!");
+                }
+              }} 
+              className="btn" 
+              style={{ width: '100%', backgroundColor: 'var(--danger-color)', color: '#fff' }}
+            >
+              Danger: Reset & Wipe All Tournament Data
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Calendar as CalendarIcon, MapPin, Send, Plus } from 'lucide-react';
+import { getGoogleCalendarUrl, downloadICalFile } from '../services/calendarExport';
 
 const Calendar = () => {
   const { matches, players, currentUser, addMatch } = useStore();
@@ -280,6 +281,27 @@ const Calendar = () => {
                 <MapPin size={14} />
                 <span>{m.court || 'Main Court'}</span>
               </div>
+
+              {m.status === 'upcoming' && (
+                <div className="flex gap-2 justify-center mt-3 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  <a 
+                    href={getGoogleCalendarUrl(m, getPlayerName(m.player1_id), getPlayerName(m.player2_id))} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.75rem', minHeight: '28px', padding: '0 0.5rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    📅 Google Calendar
+                  </a>
+                  <button 
+                    onClick={() => downloadICalFile(m, getPlayerName(m.player1_id), getPlayerName(m.player2_id))}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.75rem', minHeight: '28px', padding: '0 0.5rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    📲 Apple / iCal
+                  </button>
+                </div>
+              )}
 
               {m.status === 'played' && (
                 <div className="text-center mt-2 text-primary font-bold" style={{ fontSize: '1rem' }}>

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../context/StoreContext';
 import { User, Calendar, Award, Phone, Activity, CheckCircle, Edit } from 'lucide-react';
+import { getGoogleCalendarUrl, downloadICalFile } from '../services/calendarExport';
 
 const Dashboard = () => {
   const { currentUser, players, matches, updateMatch, updatePlayer } = useStore();
@@ -335,6 +336,25 @@ const Dashboard = () => {
               <div style={{ fontSize: '1rem', fontWeight: 'bold' }}>VS {opp?.name}</div>
               <div className="text-secondary" style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>📍 {m.court || 'Main Court'}</div>
               
+              <div className="flex gap-2 mt-2">
+                <a 
+                  href={getGoogleCalendarUrl(m, getPlayerName(m.player1_id), getPlayerName(m.player2_id))} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary"
+                  style={{ flex: 1, fontSize: '0.75rem', minHeight: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                >
+                  📅 Google Cal
+                </a>
+                <button 
+                  onClick={() => downloadICalFile(m, getPlayerName(m.player1_id), getPlayerName(m.player2_id))}
+                  className="btn btn-secondary"
+                  style={{ flex: 1, fontSize: '0.75rem', minHeight: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                >
+                  📲 Apple / iCal
+                </button>
+              </div>
+
               <button 
                 className="btn btn-primary mt-2" 
                 style={{ width: '100%', minHeight: '36px', fontSize: '0.9rem' }}
@@ -362,6 +382,118 @@ const Dashboard = () => {
             const s2_2 = parseInt(s2p2, 10);
             const s3_1 = parseInt(s3p1, 10);
             const s3_2 = parseInt(s3p2, 10);
+
+            // Tennis Rules Validation
+            if (selectedMatch.sport === 'tennis') {
+              // Set 1 validation
+              if (s1_1 !== 4 && s1_2 !== 4) {
+                alert("Tennis Set 1: A set is won by reaching exactly 4 games (no 2-game advantage or tiebreaks required). The winning score must be 4.");
+                return;
+              }
+              if (s1_1 > 4 || s1_2 > 4) {
+                alert("Tennis Set 1: Invalid score. Sets 1 & 2 are won by reaching exactly 4 games.");
+                return;
+              }
+              if (s1_1 === 4 && s1_2 === 4) {
+                alert("Tennis Set 1: Invalid score. Set must have a winner (e.g. 4-0, 4-1, 4-2, 4-3).");
+                return;
+              }
+
+              // Set 2 validation
+              const playedSet2 = !isNaN(s2_1) && !isNaN(s2_2);
+              if (!playedSet2) {
+                alert("Please enter scores for Set 2. Matches are best of 3 sets.");
+                return;
+              }
+              if (s2_1 !== 4 && s2_2 !== 4) {
+                alert("Tennis Set 2: A set is won by reaching exactly 4 games (no 2-game advantage or tiebreaks required). The winning score must be 4.");
+                return;
+              }
+              if (s2_1 > 4 || s2_2 > 4) {
+                alert("Tennis Set 2: Invalid score. Sets 1 & 2 are won by reaching exactly 4 games.");
+                return;
+              }
+              if (s2_1 === 4 && s2_2 === 4) {
+                alert("Tennis Set 2: Invalid score. Set must have a winner.");
+                return;
+              }
+
+              // Check split sets or straight sets
+              const p1WonSet1 = s1_1 > s1_2;
+              const p1WonSet2 = s2_1 > s2_2;
+              const isSplit = (p1WonSet1 && !p1WonSet2) || (!p1WonSet1 && p1WonSet2);
+              const playedSet3 = !isNaN(s3_1) && !isNaN(s3_2);
+
+              if (isSplit && !playedSet3) {
+                alert("Sets are split 1-1. Set 3 (10-point long tiebreak) is required to decide the winner.");
+                return;
+              }
+
+              if (!isSplit && playedSet3) {
+                alert("A player won the first two sets in straight sets. Set 3 is not required and should be left blank.");
+                return;
+              }
+
+              // Set 3 (long tiebreak to 10) validation
+              if (playedSet3) {
+                const s3Min = Math.min(s3_1, s3_2);
+                const s3Max = Math.max(s3_1, s3_2);
+                if (s3Max < 10 || (s3Max === 10 && s3Max - s3Min < 2) || (s3Max > 10 && s3Max - s3Min !== 2)) {
+                  alert("Tennis Set 3: Must be a long tiebreak played to 10 points, winning by at least 2 points (e.g. 10-8, 12-10, 13-11).");
+                  return;
+                }
+              }
+            }
+
+            // Pickleball Rules Validation
+            if (selectedMatch.sport === 'pickleball') {
+              // Set 1
+              const s1Max = Math.max(s1_1, s1_2);
+              const s1Min = Math.min(s1_1, s1_2);
+              if (s1Max < 11 || s1Max - s1Min < 2) {
+                alert("Pickleball Set 1: Must be played to 11 points, winning by 2 (e.g. 11-9, 12-10, 13-11).");
+                return;
+              }
+
+              // Set 2
+              const playedSet2 = !isNaN(s2_1) && !isNaN(s2_2);
+              if (!playedSet2) {
+                alert("Please enter scores for Set 2. Matches are best of 3 sets.");
+                return;
+              }
+              const s2Max = Math.max(s2_1, s2_2);
+              const s2Min = Math.min(s2_1, s2_2);
+              if (s2Max < 11 || s2Max - s2Min < 2) {
+                alert("Pickleball Set 2: Must be played to 11 points, winning by 2 (e.g. 11-9, 12-10).");
+                return;
+              }
+
+              // Check split sets or straight sets
+              const p1WonSet1 = s1_1 > s1_2;
+              const p1WonSet2 = s2_1 > s2_2;
+              const isSplit = (p1WonSet1 && !p1WonSet2) || (!p1WonSet1 && p1WonSet2);
+              const playedSet3 = !isNaN(s3_1) && !isNaN(s3_2);
+
+              if (isSplit && !playedSet3) {
+                alert("Sets are split 1-1. Set 3 (played to 11 points with rally scoring) is required to decide the winner.");
+                return;
+              }
+
+              if (!isSplit && playedSet3) {
+                alert("A player won the first two sets in straight sets. Set 3 is not required and should be left blank.");
+                return;
+              }
+
+              // Set 3 (rally scoring to 11) validation
+              if (playedSet3) {
+                const s3Max = Math.max(s3_1, s3_2);
+                const s3Min = Math.min(s3_1, s3_2);
+                if (s3Max < 11 || s3Max - s3Min < 2) {
+                  alert("Pickleball Set 3: Must be played to 11 points, winning by at least 2 points (e.g. 11-9, 12-10).");
+                  return;
+                }
+              }
+            }
 
             const playedSets = [];
             let p1SetsWon = 0;
@@ -492,6 +624,19 @@ const Dashboard = () => {
                 </tbody>
               </table>
             </div>
+            {selectedMatch.sport === 'tennis' ? (
+              <div style={{ fontSize: '0.8rem', background: 'rgba(223, 255, 0, 0.05)', padding: '0.6rem', borderRadius: '8px', border: '1px solid rgba(223, 255, 0, 0.15)', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                🎾 <strong>Tennis Match Format</strong>:<br/>
+                • Sets 1 & 2: First to <strong>4 games</strong> wins the set (no 2-game advantage or tiebreaks, e.g., 4-3).<br/>
+                • Set 3: A deciding <strong>long tiebreak to 10 points</strong> (win by 2, e.g. 10-8, 12-10). Leave blank if won in 2 sets.
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.8rem', background: 'rgba(255, 0, 255, 0.05)', padding: '0.6rem', borderRadius: '8px', border: '1px solid rgba(255, 0, 255, 0.15)', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                🏓 <strong>Pickleball Match Format</strong>:<br/>
+                • Best of 3 sets. First to <strong>11 points</strong> (win by 2, e.g. 11-9, 12-10).<br/>
+                • Set 3: Played using <strong>Rally Scoring</strong> (every rally wins a point regardless of who served). Still played to 11 points (win by 2).
+              </div>
+            )}
 
             <div className="flex gap-2 mt-1">
               <button type="submit" className="btn btn-primary" style={{ flex: 1, minHeight: '38px', fontSize: '0.9rem' }}>Confirm</button>

@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../context/StoreContext';
+import GuideModal from '../components/GuideModal';
 
 const Login = () => {
   const [role, setRole] = useState('player'); // 'player' or 'admin'
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   
   const { players, loginPlayer, loginAdmin } = useStore();
   const navigate = useNavigate();
@@ -108,11 +110,16 @@ const Login = () => {
         </form>
       </div>
 
-      <div className="mt-2 text-center">
+      <div className="mt-3 text-center flex flex-col gap-2" style={{ width: '100%', maxWidth: '400px' }}>
         <button className="btn btn-secondary" onClick={() => navigate('/standings')}>
           View Public Standings
         </button>
+        <button className="btn btn-secondary" onClick={() => setIsGuideOpen(true)}>
+          📖 Read Championship Guide
+        </button>
       </div>
+
+      <GuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
     </div>
   );
 };

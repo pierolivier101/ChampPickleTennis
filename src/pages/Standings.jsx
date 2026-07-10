@@ -6,6 +6,11 @@ const Standings = () => {
   const { players, matches } = useStore();
   const [filter, setFilter] = useState('all'); // 'all', 'tennis', 'pickleball'
 
+  // Calculate dynamic minimum matches required based on total players (N - 3)
+  const minMatchesRequired = useMemo(() => {
+    return Math.max(1, players.length - 3);
+  }, [players.length]);
+
   const standingsData = useMemo(() => {
     // Initialize stats
     const stats = {};
@@ -45,17 +50,25 @@ const Standings = () => {
       }
     });
 
-    // Convert to array and sort
-    let result = Object.values(stats);
+    // Convert to array and map qualification status
+    let result = Object.values(stats).map(s => ({
+      ...s,
+      isQualified: s.played >= minMatchesRequired
+    }));
     
     if (filter !== 'all') {
       result = result.filter(s => s.sport === filter || s.sport === 'both');
     }
 
-    result.sort((a, b) => b.points - a.points || b.wins - a.wins);
+    // Sort: Qualified players first (sorted by points, then wins), Pending players below them
+    result.sort((a, b) => {
+      if (a.isQualified && !b.isQualified) return -1;
+      if (!a.isQualified && b.isQualified) return 1;
+      return b.points - a.points || b.wins - a.wins;
+    });
     
     return result;
-  }, [players, matches, filter]);
+  }, [players, matches, filter, minMatchesRequired]);
 
   // Extract top 3 for the podium
   const podiumPlayers = useMemo(() => {
@@ -75,7 +88,7 @@ const Standings = () => {
           <Crown className="text-primary" size={28} /> Leaderboard
         </h2>
         <p className="text-secondary" style={{ fontSize: '0.9rem' }}>
-          3 points for a Win, 1 point for a Played Loss. Climb to the top!
+          3 pts for a Win, 1 pt for a Loss. Min. <strong>{minMatchesRequired}</strong> matches required to qualify for top ranking.
         </p>
       </div>
       
@@ -256,7 +269,8 @@ const Standings = () => {
                   style={{ 
                     borderBottom: '1px solid rgba(255,255,255,0.05)', 
                     transition: 'background-color 0.2s',
-                    backgroundColor: isTop3 ? 'rgba(255,255,255,0.02)' : 'transparent'
+                    backgroundColor: isTop3 ? 'rgba(255,255,255,0.02)' : 'transparent',
+                    opacity: row.isQualified ? 1 : 0.7
                   }}
                   className="leaderboard-row"
                 >
@@ -265,9 +279,28 @@ const Standings = () => {
                   </td>
                   <td style={{ padding: '0.75rem 0.5rem' }}>
                     <div className="flex flex-col">
-                      <span style={{ fontWeight: 'bold', color: isTop3 ? 'var(--text-primary)' : 'rgba(255,255,255,0.9)' }}>
-                        {row.name}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span style={{ fontWeight: 'bold', color: isTop3 ? 'var(--text-primary)' : 'rgba(255,255,255,0.9)' }}>
+                          {row.name}
+                        </span>
+                        {!row.isQualified && (
+                          <span 
+                            style={{ 
+                              fontSize: '0.65rem', 
+                              padding: '1px 6px', 
+                              borderRadius: '6px', 
+                              backgroundColor: 'rgba(255, 179, 0, 0.1)', 
+                              color: 'var(--warning-color)',
+                              border: '1px solid rgba(255, 179, 0, 0.2)',
+                              fontWeight: 'normal',
+                              display: 'inline-block',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            ⚠️ Pending ({row.played}/{minMatchesRequired})
+                          </span>
+                        )}
+                      </div>
                       <span className="text-secondary" style={{ fontSize: '0.7rem', textTransform: 'capitalize' }}>
                         {row.sport === 'both' ? 'Tennis & Pickleball' : row.sport}
                       </span>
