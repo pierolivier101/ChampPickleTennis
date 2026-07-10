@@ -86,39 +86,59 @@ export const StoreProvider = ({ children }) => {
 
     seedDatabaseIfEmpty();
 
-    const unsubPlayers = onSnapshot(collection(db, 'players'), (snapshot) => {
-      const playersList = [];
-      snapshot.forEach(docSnap => {
-        playersList.push({ ...docSnap.data(), id: docSnap.id });
-      });
-      setState(prev => ({ ...prev, players: playersList }));
-    });
-
-    const unsubMatches = onSnapshot(collection(db, 'matches'), (snapshot) => {
-      const matchesList = [];
-      snapshot.forEach(docSnap => {
-        matchesList.push({ ...docSnap.data(), id: docSnap.id });
-      });
-      setState(prev => ({ ...prev, matches: matchesList }));
-    });
-
-    const unsubMessages = onSnapshot(collection(db, 'messages'), (snapshot) => {
-      const messagesList = [];
-      snapshot.forEach(docSnap => {
-        messagesList.push({ ...docSnap.data(), id: docSnap.id });
-      });
-      messagesList.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      setState(prev => ({ ...prev, messages: messagesList }));
-    });
-
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'admin'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.pin) {
-          setState(prev => ({ ...prev, adminPin: data.pin }));
-        }
+    const unsubPlayers = onSnapshot(collection(db, 'players'), 
+      (snapshot) => {
+        const playersList = [];
+        snapshot.forEach(docSnap => {
+          playersList.push({ ...docSnap.data(), id: docSnap.id });
+        });
+        setState(prev => ({ ...prev, players: playersList }));
+      },
+      (error) => {
+        console.error("Firestore unsubPlayers error:", error);
       }
-    });
+    );
+
+    const unsubMatches = onSnapshot(collection(db, 'matches'), 
+      (snapshot) => {
+        const matchesList = [];
+        snapshot.forEach(docSnap => {
+          matchesList.push({ ...docSnap.data(), id: docSnap.id });
+        });
+        setState(prev => ({ ...prev, matches: matchesList }));
+      },
+      (error) => {
+        console.error("Firestore unsubMatches error:", error);
+      }
+    );
+
+    const unsubMessages = onSnapshot(collection(db, 'messages'), 
+      (snapshot) => {
+        const messagesList = [];
+        snapshot.forEach(docSnap => {
+          messagesList.push({ ...docSnap.data(), id: docSnap.id });
+        });
+        messagesList.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        setState(prev => ({ ...prev, messages: messagesList }));
+      },
+      (error) => {
+        console.error("Firestore unsubMessages error:", error);
+      }
+    );
+
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'admin'), 
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.pin) {
+            setState(prev => ({ ...prev, adminPin: data.pin }));
+          }
+        }
+      },
+      (error) => {
+        console.error("Firestore unsubSettings error:", error);
+      }
+    );
 
     return () => {
       unsubPlayers();
